@@ -1,0 +1,11 @@
+- Framework: Flutter (bắt buộc Sound Null Safety).
+- Kiến trúc: Feature-First Architecture (mọi code phải nằm trong lib/features/).
+- Design Pattern: Áp dụng Repository Pattern (UI và Controller tuyệt đối không gọi trực tiếp Database).
+- Stack công nghệ: Firebase Auth, Firebase Firestore, GetX, table_calendar, Gemini API, fl_chart, shimmer.
+- Tiêu chuẩn UI/UX: 
+  - Material 3, ngôn ngữ Tiếng Việt 100%, thiết kế tối giản, chữ to rõ ràng.
+  - Dữ liệu mẫu (mock data) phải dùng tên người Việt Nam.
+  - Dùng Empty States khi không có dữ liệu.
+  - Dùng Shimmer Loading thay cho xoay tròn (CircularProgressIndicator).
+  - Sử dụng Haptic Feedback (rung nhẹ) cho các thao tác quan trọng.
+- Logic nghiệp vụ cốt lõi: Rời phòng phải có Admin duyệt và công nợ phải bằng 0.
