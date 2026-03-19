@@ -25,3 +25,14 @@
 - [ ] **Test 6: Operation Logging**
   - *Cách làm:* Thêm/Sửa/Xóa một khoản chi.
   - *Kỳ vọng:* Kiểm tra collection `logs` trên Firestore có bản ghi tương ứng với `oldData` và `newData`.
+
+## V. Phase 2 Validation (Persistence & Connectivity) - Redmi Note 13
+- [ ] **Test 7: Connectivity Banner on Offline**
+  - *Cách làm:* Mất mạng, observe banner nhẹ ở top hoặc toast nhỏ khi Disconnect.
+  - *Kỳ vọng:* Banner hiển thị ngay khi mất mạng và ẩn khi kết nối được.
+- [ ] **Test 8: Offline Persistence Valid**
+  - *Cách làm:* Bật chế độ offline cho Firestore và thử reload dữ liệu sau khi kết nối lại.
+  - *Kỳ vọng:* Dữ liệu tháng hiện tại vẫn hiển thị từ cache, sau khi kết nối lại, dữ liệu đồng bộ đầy đủ.
+- [ ] **Test 9: Month Load Lazy (118Hz friendly)**
+  - *Cách làm:* Thay đổi tháng trên calendar; kiểm tra shimmer hiển thị ngay tháng mới và load data sau.
+  - *Kỳ vọng:* Không có jank, ListView render nhanh và dữ liệu tháng được lấy từ stream theo monthKey.
