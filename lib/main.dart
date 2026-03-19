@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'dart:convert';
@@ -33,14 +34,20 @@ void _agentLog({
 
     // 1) Best-effort write to local FS (works on desktop; may not on mobile)
     try {
-      File('debug-dd62c7.log').writeAsStringSync('${jsonEncode(payload)}\n', mode: FileMode.append);
+      File(
+        'debug-dd62c7.log',
+      ).writeAsStringSync('${jsonEncode(payload)}\n', mode: FileMode.append);
     } catch (_) {}
 
     // 2) Best-effort POST to host debug ingest (use `adb reverse` on Android)
     try {
       final client = HttpClient();
       client
-          .postUrl(Uri.parse('http://127.0.0.1:7595/ingest/801d4156-07c9-4bee-b44e-7b31327f93f1'))
+          .postUrl(
+            Uri.parse(
+              'http://127.0.0.1:7595/ingest/801d4156-07c9-4bee-b44e-7b31327f93f1',
+            ),
+          )
           .then((req) {
             req.headers.contentType = ContentType.json;
             req.headers.set('X-Debug-Session-Id', 'dd62c7');
@@ -73,6 +80,19 @@ void main() async {
     location: 'lib/main.dart:main',
     message: 'WidgetsFlutterBinding.ensureInitialized done',
     hypothesisId: 'H0',
+  );
+
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  _agentLog(
+    location: 'lib/main.dart:main',
+    message: 'SystemChrome.setPreferredOrientations success',
+    hypothesisId: 'H0',
+    data: {
+      'orientations': ['portraitUp', 'portraitDown'],
+    },
   );
 
   try {
@@ -149,9 +169,7 @@ class MyApp extends StatelessWidget {
       ),
       locale: const Locale('vi', 'VN'),
       fallbackLocale: const Locale('vi', 'VN'),
-      supportedLocales: const [
-        Locale('vi', 'VN'),
-      ],
+      supportedLocales: const [Locale('vi', 'VN')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -166,4 +184,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

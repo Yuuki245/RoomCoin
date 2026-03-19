@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
-import '../models/expense.dart';
-import '../controllers/expense_controller.dart';
+
 import '../../auth/repositories/user_repository.dart';
+import '../controllers/expense_controller.dart';
+import '../models/expense.dart';
 
 class ExpenseDetailScreen extends StatelessWidget {
   final Expense expense;
@@ -28,7 +29,10 @@ class ExpenseDetailScreen extends StatelessWidget {
             child: Container(
               height: 14,
               width: 120,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
           );
         }
@@ -47,6 +51,9 @@ class ExpenseDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ExpenseController controller = Get.find();
     final tag = controller.getTagById(expense.tagId);
+    final tagColor = tag == null
+        ? Theme.of(context).colorScheme.primary
+        : Color(int.parse(tag.colorHex.replaceFirst('#', '0xff')));
     final isCreator = controller.currentUid == expense.createdBy;
     final dateFormatter = DateFormat('EEEE, dd MMMM yyyy - HH:mm', 'vi_VN');
 
@@ -58,16 +65,22 @@ class ExpenseDetailScreen extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () {
-                    // TODO: Mở màn hình Sửa
-                    Get.snackbar('Tính năng', 'Sửa khoản chi sẽ ra mắt sau.', snackPosition: SnackPosition.BOTTOM);
+                    Get.snackbar(
+                      'Tính năng',
+                      'Sửa khoản chi sẽ ra mắt sau.',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: Icon(
+                    Icons.delete,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   onPressed: () => _showDeleteConfirm(context, controller),
                 ),
               ]
-            : [], // Nếu không phải người tạo, ẩn nút sửa/xóa
+            : [],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -77,21 +90,26 @@ class ExpenseDetailScreen extends StatelessWidget {
             Center(
               child: CircleAvatar(
                 radius: 40,
-                backgroundColor: Color(int.parse(tag.colorHex.replaceFirst('#', '0xff'))).withAlpha(51),
+                backgroundColor: tagColor.withAlpha(51),
                 child: Icon(
-                  IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
+                  IconData(
+                    tag?.iconCode ?? Icons.receipt_long.codePoint,
+                    fontFamily: 'MaterialIcons',
+                  ),
                   size: 40,
-                  color: Color(int.parse(tag.colorHex.replaceFirst('#', '0xff'))),
+                  color: tagColor,
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Center(
               child: Text(
-                expense.note ?? tag.name,
+                expense.note ?? tag?.name ?? 'Danh mục',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -99,9 +117,9 @@ class ExpenseDetailScreen extends StatelessWidget {
               child: Text(
                 _formatVnd(expense.amount),
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 32),
@@ -109,11 +127,14 @@ class ExpenseDetailScreen extends StatelessWidget {
               context,
               title: 'Danh mục',
               value: Text(
-                tag.name,
+                tag?.name ?? 'Danh mục',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ),
             _buildDetailRow(
@@ -124,26 +145,41 @@ class ExpenseDetailScreen extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ),
-            _buildDetailRow(context, title: 'Người tạo', value: _userName(expense.createdBy)),
-            _buildDetailRow(context, title: 'Người trả tiền', value: _userName(expense.paidBy)),
+            _buildDetailRow(
+              context,
+              title: 'Người tạo',
+              value: _userName(expense.createdBy),
+            ),
+            _buildDetailRow(
+              context,
+              title: 'Người trả tiền',
+              value: _userName(expense.paidBy),
+            ),
             const Divider(height: 32),
             Text(
               'Danh sách chia tiền',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            ...expense.splitBetween.map((member) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.person),
-                  title: _userName(member),
-                  trailing: Text(
-                    _formatVnd(expense.amount / expense.splitBetween.length),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                )),
+            ...expense.splitBetween.map(
+              (member) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.person),
+                title: _userName(member),
+                trailing: Text(
+                  _formatVnd(expense.amount / expense.splitBetween.length),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -164,15 +200,14 @@ class ExpenseDetailScreen extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: value,
-            ),
+            child: Align(alignment: Alignment.centerRight, child: value),
           ),
         ],
       ),
@@ -182,23 +217,36 @@ class ExpenseDetailScreen extends StatelessWidget {
   void _showDeleteConfirm(BuildContext context, ExpenseController controller) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Xác nhận xóa'),
-          content: const Text('Bạn có chắc chắn muốn xóa khoản chi này không? Hành động này không thể hoàn tác.'),
+          content: const Text(
+            'Bạn có chắc chắn muốn xóa khoản chi này không? Hành động này không thể hoàn tác.',
+          ),
           actions: [
             TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Hủy'),
-              onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
-              child: const Text('Xóa', style: TextStyle(color: Colors.red)),
-              onPressed: () {
-                controller.deleteExpense(expense.id);
-                Navigator.of(context).pop(); // Đóng dialog
-                Get.back(); // Trở về màn hình trước
-                Get.snackbar('Đã xóa', 'Khoản chi đã được xóa thành công', snackPosition: SnackPosition.BOTTOM);
+              onPressed: () async {
+                try {
+                  await controller.deleteExpense(expense.id);
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                  Get.back();
+                  Get.snackbar(
+                    'Đã xóa',
+                    'Khoản chi đã được xóa thành công',
+                    snackPosition: SnackPosition.BOTTOM,
+                  );
+                } catch (_) {}
               },
+              child: Text(
+                'Xóa',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           ],
         );

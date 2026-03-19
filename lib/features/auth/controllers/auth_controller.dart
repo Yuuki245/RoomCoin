@@ -7,18 +7,22 @@ class AuthController extends GetxController {
 
   /// Room hiện tại của user (rỗng nếu chưa có)
   final RxString roomId = ''.obs;
+  Worker? _userWorker;
 
   @override
   void onInit() {
     super.onInit();
 
-    // đồng bộ giá trị ban đầu (nếu đã có)
     roomId.value = (_app.user.value?.roomId ?? '').trim();
 
-    // lắng nghe user doc realtime từ AppController
-    ever(_app.user, (u) {
+    _userWorker = ever(_app.user, (u) {
       roomId.value = (u?.roomId ?? '').trim();
     });
   }
-}
 
+  @override
+  void onClose() {
+    _userWorker?.dispose();
+    super.onClose();
+  }
+}

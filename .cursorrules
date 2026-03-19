@@ -9,3 +9,11 @@
   - Dùng Shimmer Loading thay cho xoay tròn (CircularProgressIndicator).
   - Sử dụng Haptic Feedback (rung nhẹ) cho các thao tác quan trọng.
 - Logic nghiệp vụ cốt lõi: Rời phòng phải có Admin duyệt và công nợ phải bằng 0.
+
+"QUY TẮC CẬP NHẬT TIẾN ĐỘ:
+
+Sau khi hoàn thành bất kỳ task nào trong @project_plan.md, bạn PHẢI tự động cập nhật trạng thái từ [ ] thành [x].
+
+Nếu một task mới phát sinh trong quá trình code, hãy chủ động thêm nó vào mục phù hợp trong @project_plan.md.
+
+Trước khi bắt đầu một task mới, hãy thông báo cho tôi biết bạn đang thực hiện bước nào trong Roadmap."

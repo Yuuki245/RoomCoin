@@ -17,8 +17,13 @@ class ExpenseCalendarScreen extends StatefulWidget {
 class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
   final ExpenseController controller = Get.put(ExpenseController());
   final ScrollController _scrollController = ScrollController();
-  final Map<DateTime, GlobalKey> _itemKeys = {};
+  final Map<String, GlobalKey> _itemKeys = {};
   final NumberFormat _compactCurrency = NumberFormat.compact(locale: 'vi_VN');
+  final NumberFormat _currencyFormatter = NumberFormat.currency(
+    locale: 'vi_VN',
+    symbol: 'đ',
+  );
+  final DateFormat _dateFormatter = DateFormat('dd/MM - EEEE', 'vi_VN');
 
   @override
   void dispose() {
@@ -27,28 +32,40 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
   }
 
   void _scrollToDate(DateTime date) {
-    // Tìm expense đầu tiên có cùng ngày để cuộn tới
-    final expenses = controller.getExpensesForMonth(controller.selectedDate.value);
-    final targetExpense = expenses.firstWhereOrNull((e) => isSameDay(e.date, date));
-    
-    if (targetExpense != null && _itemKeys.containsKey(targetExpense.date)) {
-      final keyContext = _itemKeys[targetExpense.date]?.currentContext;
-      if (keyContext != null) {
-        Scrollable.ensureVisible(
-          keyContext,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          alignment: 0.1, // Hơi căn xuống một chút
-        );
-      }
+    final expensesForDay = controller.getExpensesForDate(date);
+    if (expensesForDay.isEmpty) {
+      return;
     }
+
+    final firstExpenseId = expensesForDay.first.id;
+    final keyContext = _itemKeys[firstExpenseId]?.currentContext;
+    if (keyContext != null) {
+      Scrollable.ensureVisible(
+        keyContext,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: 0.1,
+      );
+    }
+  }
+
+  void _scrollToDateAfterBuild(DateTime date) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _scrollToDate(date);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chi tiêu nhóm', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Chi tiêu nhóm',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
@@ -57,9 +74,7 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
         children: [
           _buildCalendar(context),
           const Divider(height: 1),
-          Expanded(
-            child: _buildExpenseList(context),
-          ),
+          Expanded(child: _buildExpenseList(context)),
         ],
       ),
     );
@@ -67,19 +82,18 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
 
   Widget _buildCalendar(BuildContext context) {
     return Obx(() {
+      controller.expenses.length;
+      final selectedDate = controller.selectedDate.value;
       return TableCalendar(
         locale: 'vi_VN',
         firstDay: DateTime.utc(2020, 1, 1),
         lastDay: DateTime.utc(2030, 12, 31),
-        focusedDay: controller.selectedDate.value,
+        focusedDay: selectedDate,
         currentDay: DateTime.now(),
-        selectedDayPredicate: (day) => isSameDay(controller.selectedDate.value, day),
+        selectedDayPredicate: (day) => isSameDay(selectedDate, day),
         onDaySelected: (selectedDay, focusedDay) {
           controller.updateSelectedDate(selectedDay);
-          // Đợi một chút để danh sách build xong (nếu chuyển tháng) rồi mới cuộn
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _scrollToDate(selectedDay);
-          });
+          _scrollToDateAfterBuild(selectedDay);
         },
         eventLoader: (day) => controller.eventsForDay(day),
         calendarFormat: CalendarFormat.month,
@@ -102,39 +116,37 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
           ),
         ),
         calendarBuilders: CalendarBuilders(
-          defaultBuilder: (context, day, focusedDay) => _buildCalendarCell(context, day, false),
-          selectedBuilder: (context, day, focusedDay) => _buildCalendarCell(context, day, true),
-          todayBuilder: (context, day, focusedDay) => _buildCalendarCell(context, day, false, isToday: true),
+          defaultBuilder: (context, day, focusedDay) =>
+              _buildCalendarCell(context, day, false),
+          selectedBuilder: (context, day, focusedDay) =>
+              _buildCalendarCell(context, day, true),
+          todayBuilder: (context, day, focusedDay) =>
+              _buildCalendarCell(context, day, false, isToday: true),
           markerBuilder: (context, day, events) {
-            if (events.isEmpty) return null;
-            final total = controller.getTotalForDate(day);
-            return Positioned(
-              bottom: 2,
-              child: Text(
-                '${_compactCurrency.format(total)}đ',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-              ),
-            );
+            return const SizedBox.shrink();
           },
         ),
       );
     });
   }
 
-  Widget _buildCalendarCell(BuildContext context, DateTime day, bool isSelected, {bool isToday = false}) {
+  Widget _buildCalendarCell(
+    BuildContext context,
+    DateTime day,
+    bool isSelected, {
+    bool isToday = false,
+  }) {
     final total = controller.getTotalForDate(day);
-    bool hasData = total > 0;
+    final hasData = total > 0;
 
     return Container(
       margin: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isSelected 
-            ? Theme.of(context).colorScheme.primary 
-            : (isToday ? Theme.of(context).colorScheme.primary.withAlpha(77) : Colors.transparent),
+        color: isSelected
+            ? Theme.of(context).colorScheme.primary
+            : (isToday
+                  ? Theme.of(context).colorScheme.primary.withAlpha(77)
+                  : Colors.transparent),
         shape: BoxShape.rectangle,
         borderRadius: BorderRadius.circular(8),
       ),
@@ -146,20 +158,34 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
             child: Text(
               '${day.day}',
               style: TextStyle(
-                color: isSelected ? Theme.of(context).colorScheme.onPrimary : null,
-                fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : null,
+                fontWeight: isSelected || isToday
+                    ? FontWeight.bold
+                    : FontWeight.normal,
               ),
             ),
           ),
           if (hasData)
             Positioned(
-              bottom: 2,
-              child: Text(
-                '${_compactCurrency.format(total)}đ',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.error,
+              bottom: 4, // Đẩy xuống dưới cùng một chút
+              child: SizedBox(
+                width: 40, // Giới hạn chiều rộng tối đa của số tiền trong 1 ô
+                child: FittedBox(
+                  fit: BoxFit.scaleDown, // TỰ ĐỘNG THU NHỎ nếu chữ quá dài
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${_compactCurrency.format(total)}đ',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5, // Ép các chữ số sát nhau hơn cho gọn
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -169,11 +195,7 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
   }
 
   Widget _buildExpenseList(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
-    final dateFormatter = DateFormat('dd/MM - EEEE', 'vi_VN');
-
     return Obx(() {
-      // Chỉ hiển thị dữ liệu khi đã map xong Users + Tags + batch đầu tiên của Stream
       if (controller.isInitialLoadingView) {
         return ListView.builder(
           controller: _scrollController,
@@ -190,20 +212,41 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      const CircleAvatar(radius: 20, backgroundColor: Colors.white),
+                      const CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.white,
+                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
-                            SizedBox(height: 12, width: double.infinity, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white))),
+                            SizedBox(
+                              height: 12,
+                              width: double.infinity,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(color: Colors.white),
+                              ),
+                            ),
                             SizedBox(height: 8),
-                            SizedBox(height: 10, width: 180, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white))),
+                            SizedBox(
+                              height: 10,
+                              width: 180,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(color: Colors.white),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const SizedBox(height: 12, width: 64, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white))),
+                      const SizedBox(
+                        height: 12,
+                        width: 64,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: Colors.white),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -213,20 +256,15 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
         );
       }
 
-      final monthlyExpenses = controller.getExpensesForMonth(controller.selectedDate.value);
-      
+      final selectedDate = controller.selectedDate.value;
+      final monthlyExpenses = controller.getExpensesForMonth(selectedDate);
+
       if (monthlyExpenses.isEmpty) {
         return const EmptyState(
           icon: Icons.receipt_long_outlined,
           title: 'Không có chi tiêu',
           subtitle: 'Bạn chưa có khoản chi nào trong tháng này.',
         );
-      }
-
-      // Format lại keys cho cuộn
-      _itemKeys.clear();
-      for (var expense in monthlyExpenses) {
-        _itemKeys.putIfAbsent(expense.date, () => GlobalKey());
       }
 
       return ListView.builder(
@@ -236,14 +274,19 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
         itemBuilder: (context, index) {
           final expense = monthlyExpenses[index];
           final tag = controller.getTagById(expense.tagId);
-          
+          final tagColor = tag == null
+              ? Theme.of(context).colorScheme.primary
+              : Color(int.parse(tag.colorHex.replaceFirst('#', '0xff')));
+
           return Container(
-            key: _itemKeys[expense.date], // Gắn Key cho item đầu tiên của ngày
+            key: _itemKeys.putIfAbsent(expense.id, () => GlobalKey()),
             child: Card(
               elevation: 0,
-              color: isSameDay(expense.date, controller.selectedDate.value)
-                  ? Theme.of(context).colorScheme.primaryContainer // Highlight item của ngày đang chọn
-                  : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(77),
+              color: isSameDay(expense.date, selectedDate)
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest.withAlpha(77),
               margin: const EdgeInsets.only(bottom: 12),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
@@ -255,10 +298,13 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: Color(int.parse(tag.colorHex.replaceFirst('#', '0xff'))).withAlpha(51),
+                        backgroundColor: tagColor.withAlpha(51),
                         child: Icon(
-                          IconData(tag.iconCode, fontFamily: 'MaterialIcons'),
-                          color: Color(int.parse(tag.colorHex.replaceFirst('#', '0xff'))),
+                          IconData(
+                            tag?.iconCode ?? Icons.receipt_long.codePoint,
+                            fontFamily: 'MaterialIcons',
+                          ),
+                          color: tagColor,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -267,19 +313,25 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              (expense.note == null || expense.note!.trim().isEmpty)
+                              (expense.note == null ||
+                                      expense.note!.trim().isEmpty)
                                   ? controller.tagName(expense.tagId)
                                   : expense.note!,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${dateFormatter.format(expense.date)} • Người trả: ${controller.memberName(expense.paidBy)}',
+                              '${_dateFormatter.format(expense.date)} • Người trả: ${controller.memberName(expense.paidBy)}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -288,7 +340,7 @@ class _ExpenseCalendarScreenState extends State<ExpenseCalendarScreen> {
                         ),
                       ),
                       Text(
-                        '-${currencyFormatter.format(expense.amount)}',
+                        '-${_currencyFormatter.format(expense.amount)}',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                           fontWeight: FontWeight.bold,
