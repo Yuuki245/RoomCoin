@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -7,7 +8,11 @@ import '../../firebase_options.dart';
 class FirebaseService {
   static Future<void> initialize() async {
     // #region agent log
-    void log(String message, String hypothesisId, [Map<String, dynamic>? data]) {
+    void log(
+      String message,
+      String hypothesisId, [
+      Map<String, dynamic>? data,
+    ]) {
       try {
         final payload = <String, dynamic>{
           'sessionId': 'dd62c7',
@@ -21,7 +26,10 @@ class FirebaseService {
 
         // 1) Local FS (desktop)
         try {
-          File('debug-dd62c7.log').writeAsStringSync('${jsonEncode(payload)}\n', mode: FileMode.append);
+          File('debug-dd62c7.log').writeAsStringSync(
+            '${jsonEncode(payload)}\n',
+            mode: FileMode.append,
+          );
         } catch (_) {}
 
         // 2) POST to host debug ingest (use `adb reverse` on Android)
@@ -29,7 +37,9 @@ class FirebaseService {
           final client = HttpClient();
           client
               .postUrl(
-                Uri.parse('http://127.0.0.1:7595/ingest/801d4156-07c9-4bee-b44e-7b31327f93f1'),
+                Uri.parse(
+                  'http://127.0.0.1:7595/ingest/801d4156-07c9-4bee-b44e-7b31327f93f1',
+                ),
               )
               .then((req) {
                 req.headers.contentType = ContentType.json;
@@ -55,6 +65,10 @@ class FirebaseService {
     });
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
     log('Firebase.initializeApp success', 'H1');
   }

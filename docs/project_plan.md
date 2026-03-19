@@ -7,13 +7,13 @@
 - [x] Basic Expense CRUD & Calendar View.
 
 ## Phase 1: Core Stability & Performance (Highest Priority)
-- [ ] Refactor Tag module theo Repository Pattern, dùng Firestore `rooms/{roomId}/tags`.
-- [ ] Chuẩn hóa Expense data layer: full add/update/delete flow, cache lookup `O(1)` cho tag/member/day/month.
-- [ ] Hoàn thiện Shimmer/Empty/Error states nhất quán cho các màn hình chính.
-- [ ] Tối ưu GetX rebuild scope, loại bỏ side-effect trong `build`, giữ scroll/list mượt trên Redmi Note 13.
-- [ ] Bổ sung Firestore indexes cần thiết cho `expenses`, `rooms`, `tags`.
-- [ ] Bật và kiểm thử offline persistence + xử lý reconnect state.
-- [ ] Tối ưu danh sách chi tiêu dài: limit theo tháng, lazy rendering, tránh jank UI thread.
+- [x] Refactor Tag module theo Repository Pattern, dùng Firestore `rooms/{roomId}/tags`.
+- [x] Chuẩn hóa Expense data layer: full add/update/delete flow, cache lookup `O(1)` cho tag/member/day/month.
+- [x] Hoàn thiện Shimmer/Empty/Error states nhất quán cho các màn hình chính.
+- [x] Tối ưu GetX rebuild scope, loại bỏ side-effect trong `build`, giữ scroll/list mượt trên Redmi Note 13.
+- [x] Bổ sung Firestore indexes cần thiết cho `expenses`, `rooms`, `tags`.
+- [x] Bật và kiểm thử offline persistence + xử lý reconnect state.
+- [x] Tối ưu danh sách chi tiêu dài: limit theo tháng, lazy rendering, tránh jank UI thread.
 
 ## Phase 2: Enhanced Core & Security
 - [ ] Audit Log: ghi lịch sử Thêm/Sửa/Xóa vào Firestore `logs`.

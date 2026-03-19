@@ -9,6 +9,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/controllers/app_controller.dart';
 import 'core/services/firebase_service.dart';
 import 'core/widgets/app_gate.dart';
+import 'features/connectivity/controllers/connectivity_controller.dart';
+import 'features/connectivity/widgets/connectivity_status_banner.dart';
 import 'features/home/screens/main_navigation.dart';
 import 'features/auth/controllers/auth_controller.dart';
 import 'features/auth/repositories/user_repository.dart';
@@ -160,6 +162,7 @@ class MyApp extends StatelessWidget {
     );
     Get.put(AppController(), permanent: true);
     Get.put(AuthController(), permanent: true);
+    Get.put(ConnectivityController(), permanent: true);
     Get.put(UserRepository(), permanent: true);
     return GetMaterialApp(
       title: 'RoomCoin',
@@ -181,6 +184,11 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/main', page: () => const MainNavigation()),
         GetPage(name: '/home', page: () => const MainNavigation()),
       ],
+      builder: (context, child) {
+        return ConnectivityStatusBanner(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

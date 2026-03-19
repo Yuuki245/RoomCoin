@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
 
+import '../../../core/widgets/empty_state.dart';
 import '../controllers/expense_controller.dart';
 import '../models/tag.dart';
+import '../widgets/expense_state_widgets.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -178,67 +179,152 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(context),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                'Danh mục',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildTagGridView(),
-            ),
-            const Divider(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                'Chia tiền cho',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildSplitChecklist(),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+      body: SingleChildScrollView(child: Obx(() => _buildBody(context))),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-          child: Obx(() {
-            final isSaving = controller.isSaving.value;
-            return ElevatedButton(
-              onPressed: isSaving ? null : _saveExpense,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                shape: const StadiumBorder(),
-                elevation: 4,
-              ),
-              child: Text(
-                isSaving ? 'Đang lưu khoản chi...' : 'Nhập khoản Tiền chi',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            );
-          }),
+        child: Obx(() => _buildBottomAction(context)),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final isLoadingSetup =
+        controller.isLoadingTags.value || controller.isLoadingMembers.value;
+    final errorMessage = controller.primaryLoadError;
+
+    if (isLoadingSetup &&
+        controller.tags.isEmpty &&
+        controller.members.isEmpty) {
+      return _buildLoadingBody(context);
+    }
+
+    if (errorMessage != null &&
+        controller.tags.isEmpty &&
+        controller.members.isEmpty) {
+      return ExpenseErrorState(
+        title: 'Không thể tải dữ liệu biểu mẫu',
+        subtitle: errorMessage,
+        onRetry: controller.retryLoad,
+      );
+    }
+
+    if (!controller.isLoadingTags.value && controller.tags.isEmpty) {
+      return const EmptyState(
+        icon: Icons.sell_outlined,
+        title: 'Chưa có danh mục',
+        subtitle: 'Danh mục chi tiêu của phòng chưa sẵn sàng.',
+      );
+    }
+
+    if (!controller.isLoadingMembers.value && controller.members.isEmpty) {
+      return const EmptyState(
+        icon: Icons.group_outlined,
+        title: 'Chưa có thành viên',
+        subtitle: 'Phòng hiện chưa có thành viên để chia tiền.',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHeader(context),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            'Danh mục',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _buildTagGridView(),
+        ),
+        const Divider(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Chia tiền cho',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _buildSplitChecklist(),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildLoadingBody(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHeader(context),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            'Danh mục',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: ExpenseTagGridShimmer(),
+        ),
+        const Divider(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Chia tiền cho',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: ExpenseChipWrapShimmer(),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildBottomAction(BuildContext context) {
+    final isSaving = controller.isSaving.value;
+    final canSubmit =
+        controller.tags.isNotEmpty &&
+        controller.members.isNotEmpty &&
+        controller.primaryLoadError == null;
+
+    if (!canSubmit && !isSaving) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+      child: ElevatedButton(
+        onPressed: isSaving ? null : _saveExpense,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          shape: const StadiumBorder(),
+          elevation: 4,
+        ),
+        child: Text(
+          isSaving ? 'Đang lưu khoản chi...' : 'Nhập khoản Tiền chi',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -447,38 +533,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildTagGridView() {
     return Obx(() {
       if (controller.isLoadingTags.value) {
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 5,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: 10,
-          itemBuilder: (context, index) {
-            return Shimmer.fromColors(
-              baseColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              highlightColor: Theme.of(context).colorScheme.surface,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(height: 10, width: 44, color: Colors.white),
-                ],
-              ),
-            );
-          },
-        );
+        return const ExpenseTagGridShimmer();
       }
 
       final tags = controller.tags;
@@ -598,6 +653,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Widget _buildSplitChecklist() {
     return Obx(() {
+      if (controller.isLoadingMembers.value) {
+        return const ExpenseChipWrapShimmer();
+      }
+
       final members = controller.members;
       return Wrap(
         spacing: 8.0,

@@ -11,21 +11,54 @@ class ExpenseRepository {
 
   static const String _expensesCollection = 'expenses';
   static const String _usersCollection = 'users';
+  static const int monthExpenseLimit = 500;
 
-  Stream<List<Expense>> streamExpensesByRoom(String roomId) {
+  Stream<List<Expense>> streamExpensesByRoomMonth(
+    String roomId,
+    DateTime month,
+  ) {
+    final monthStart = DateTime(month.year, month.month, 1);
+    final monthEnd = DateTime(month.year, month.month + 1, 1);
+
     return _db
         .collection(_expensesCollection)
         .where('roomId', isEqualTo: roomId)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
+        .where('date', isLessThan: Timestamp.fromDate(monthEnd))
         .orderBy('date', descending: true)
+        .limit(monthExpenseLimit)
         .snapshots()
-        .map((snap) => snap.docs.map(Expense.fromDoc).toList());
+        .map((snap) => snap.docs.map(Expense.fromDoc).toList(growable: false));
   }
 
-  Future<void> addExpense(Expense expense) async {
-    await _db.collection(_expensesCollection).add({
+  Future<String> addExpense(Expense expense) async {
+    final docRef = _db.collection(_expensesCollection).doc();
+    await docRef.set({
       ...expense.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
     });
+    return docRef.id;
+  }
+
+  Future<void> updateExpense(Expense expense) async {
+    final payload = <String, dynamic>{
+      'roomId': expense.roomId,
+      'amount': expense.amount,
+      'paidBy': expense.paidBy,
+      'createdBy': expense.createdBy,
+      'splitBetween': expense.splitBetween,
+      'tagId': expense.tagId,
+      'date': Timestamp.fromDate(expense.date),
+      'createdAt': Timestamp.fromDate(expense.createdAt),
+    };
+
+    if (expense.note == null || expense.note!.trim().isEmpty) {
+      payload['note'] = FieldValue.delete();
+    } else {
+      payload['note'] = expense.note!.trim();
+    }
+
+    await _db.collection(_expensesCollection).doc(expense.id).update(payload);
   }
 
   Future<void> deleteExpense(String expenseId) async {
@@ -37,25 +70,21 @@ class ExpenseRepository {
       return const <MemberOption>[];
     }
 
-    final results = <MemberOption>[];
-    for (final memberUid in memberUids) {
-      try {
-        final snap = await _db
-            .collection(_usersCollection)
-            .doc(memberUid)
-            .get();
-        final data = snap.data();
-        final displayName = data == null
-            ? 'Nguyễn Văn A'
-            : (data['displayName'] as String?) ??
-                  (data['name'] as String?) ??
-                  'Nguyễn Văn A';
-        results.add(MemberOption(uid: memberUid, displayName: displayName));
-      } catch (_) {
-        results.add(MemberOption(uid: memberUid, displayName: 'Nguyễn Văn A'));
-      }
-    }
+    return Future.wait(memberUids.map(_getMemberOption));
+  }
 
-    return results;
+  Future<MemberOption> _getMemberOption(String memberUid) async {
+    try {
+      final snap = await _db.collection(_usersCollection).doc(memberUid).get();
+      final data = snap.data();
+      final displayName = data == null
+          ? 'Nguyễn Văn A'
+          : (data['displayName'] as String?) ??
+                (data['name'] as String?) ??
+                'Nguyễn Văn A';
+      return MemberOption(uid: memberUid, displayName: displayName);
+    } catch (_) {
+      return MemberOption(uid: memberUid, displayName: 'Nguyễn Văn A');
+    }
   }
 }

@@ -51,11 +51,42 @@ class Expense {
       amount: (data['amount'] as num).toDouble(),
       paidBy: data['paidBy'] as String,
       createdBy: (data['createdBy'] as String?) ?? (data['paidBy'] as String),
-      splitBetween: List<String>.from((data['splitBetween'] as List?) ?? const <String>[]),
+      splitBetween: List<String>.from(
+        (data['splitBetween'] as List?) ?? const <String>[],
+      ),
       tagId: data['tagId'] as String,
       date: (data['date'] as Timestamp).toDate(),
       note: data['note'] as String?,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt:
+          (data['createdAt'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  Expense copyWith({
+    String? id,
+    String? roomId,
+    double? amount,
+    String? paidBy,
+    String? createdBy,
+    List<String>? splitBetween,
+    String? tagId,
+    DateTime? date,
+    String? note,
+    bool clearNote = false,
+    DateTime? createdAt,
+  }) {
+    return Expense(
+      id: id ?? this.id,
+      roomId: roomId ?? this.roomId,
+      amount: amount ?? this.amount,
+      paidBy: paidBy ?? this.paidBy,
+      createdBy: createdBy ?? this.createdBy,
+      splitBetween: splitBetween ?? this.splitBetween,
+      tagId: tagId ?? this.tagId,
+      date: date ?? this.date,
+      note: clearNote ? null : (note ?? this.note),
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
