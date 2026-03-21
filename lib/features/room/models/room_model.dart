@@ -4,6 +4,7 @@ class RoomModel {
   final String inviteCode; // 6 số
   final String adminId;
   final List<String> members;
+  final List<String> pendingLeaveUids;
   final DateTime createdAt;
 
   const RoomModel({
@@ -12,6 +13,7 @@ class RoomModel {
     required this.inviteCode,
     required this.adminId,
     required this.members,
+    this.pendingLeaveUids = const [],
     required this.createdAt,
   });
 
@@ -32,6 +34,9 @@ class RoomModel {
       inviteCode: (map['inviteCode'] as String?) ?? (map['code'] as String),
       adminId: map['adminId'] as String,
       members: List<String>.from(map['members'] as List),
+      pendingLeaveUids: map['pendingLeaveUids'] != null
+          ? List<String>.from(map['pendingLeaveUids'] as List)
+          : [],
       createdAt: createdAt,
     );
   }
@@ -42,6 +47,7 @@ class RoomModel {
       'inviteCode': inviteCode,
       'adminId': adminId,
       'members': members,
+      'pendingLeaveUids': pendingLeaveUids,
       'createdAt': createdAt.millisecondsSinceEpoch,
     };
   }
@@ -52,6 +58,7 @@ class RoomModel {
     String? inviteCode,
     String? adminId,
     List<String>? members,
+    List<String>? pendingLeaveUids,
     DateTime? createdAt,
   }) {
     return RoomModel(
@@ -60,6 +67,7 @@ class RoomModel {
       inviteCode: inviteCode ?? this.inviteCode,
       adminId: adminId ?? this.adminId,
       members: members ?? this.members,
+      pendingLeaveUids: pendingLeaveUids ?? this.pendingLeaveUids,
       createdAt: createdAt ?? this.createdAt,
     );
   }

@@ -15,38 +15,36 @@
 - [x] Bật và kiểm thử offline persistence + xử lý reconnect state.
 - [x] Tối ưu danh sách chi tiêu dài: limit theo tháng, lazy rendering, tránh jank UI thread.
 
-## Phase 2: Enhanced Core & Security
-- [ ] Audit Log: ghi lịch sử Thêm/Sửa/Xóa vào Firestore `logs`.
-- [ ] Settlement Logic: tính nợ chéo và chốt nợ phải thanh toán hết một lần.
-- [ ] VietQR Integration: tạo mã QR thanh toán từ kết quả settlement.
-- [ ] Rời phòng: Admin duyệt và chỉ cho rời khi công nợ bằng 0.
-- [ ] Quản lý profile ngân hàng cá nhân để phục vụ VietQR.
+## Phase 2: Rời phòng & Đồng bộ (Leave Room & Sync) - **HOÀN THIỆN 100%**
+- [x] Luồng Member xin rời phòng (Yêu cầu & Chờ duyệt).
+- [x] Luồng Admin rời phòng & Chuyển quyền (WriteBatch).
+- [x] Xử lý Data Desync (Filter thành viên cũ, Validation sửa hóa đơn).
 
-## Phase 3: Fast Access & Room Experience
+## Phase 3: Hệ thống Báo cáo & Thống kê Đa tầng (Advanced Reporting)
+- [ ] Mở rộng Data Layer: Nghiên cứu áp dụng Firestore Aggregation `sum()` kết hợp index để query tổng tiền O(1) theo 5 mốc thời gian (Ngày/Tháng/Quý/Năm/All).
+- [ ] Cấu trúc Query Report: Viết custom query `sum(amount)` nhóm theo `tagId` (Group Report) và theo `uid` (Personal Report).
+- [ ] UI Báo cáo Tổng (Group): Hiển thị tổng chi tiêu cả phòng, có biểu đồ tỷ trọng (Pie Chart) theo Danh mục. Thống kê số tiền từng người đã chi.
+- [ ] UI Báo cáo Cá nhân (Personal): Lấy tham số `uid`, hiển thị tổng tiền user đã chi và biểu đồ tỷ trọng bằng tiền của riêng user.
+- [ ] Export Data: Trích xuất báo cáo ra định dạng CSV/Excel.
+
+## Phase 4: Fast Access & Room Experience
 - [ ] QR Join Room: tạo và quét mã QR để vào phòng nhanh.
 - [ ] Tối ưu luồng vào phòng: validate local trước, giảm số lần gọi Firestore.
 - [ ] Tạo màn hình thông tin phòng với mã mời, QR, danh sách thành viên và quyền admin.
 
-## Phase 4: Automation & Intelligence
+## Phase 5: Automation & Intelligence
 - [ ] Recurring Expenses: thiết lập khoản chi định kỳ hàng tháng.
 - [ ] Cơ chế materialize khoản chi định kỳ an toàn, không tạo trùng dữ liệu.
 - [ ] AI Assistant: chatbot Gemini chỉ phản hồi bằng văn bản dựa trên dữ liệu Firestore.
 - [ ] Xây lớp tổng hợp dữ liệu trung gian cho AI để không query raw data từ UI.
 - [ ] OCR hóa đơn bằng Gemini API: chụp ảnh, trích xuất số tiền/ngày, cho người dùng xác nhận trước khi lưu.
 
-## Phase 5: Analytics & Export
-- [ ] Pie Chart Analytics: thống kê chi tiêu theo Tag với dữ liệu aggregate/cache `O(1)`.
-- [ ] Member Analytics: thống kê chi tiêu theo thành viên.
-- [ ] Export Data: xuất báo cáo tháng ra CSV.
-- [ ] Mở rộng Export Data ra Excel nếu cần.
-- [ ] Tối ưu biểu đồ và export flow để không block UI thread.
-
 ## Phase 6: Final Polish for Redmi Note 13
 - [ ] Kiểm thử thực tế trên Redmi Note 13 ở 60Hz/120Hz.
-- [ ] Đo hiệu năng khi dữ liệu lớn: startup time, scroll smoothness, frame drops.
+- [ ] Đo hiệu năng biểu đồ báo cáo khi thao tác vuốt/đổi ngày: startup time, scroll smoothness, frame drops.
 - [ ] Giảm shader jank, tránh animation/layout nặng.
 - [ ] Hoàn thiện error handling toàn app.
-- [ ] Rà soát security rules và kiến trúc Firestore cho các collection mới.
+- [ ] Rà soát security rules và kiến trúc Firestore.
 
 ## Technical Guardrails
 - [ ] Tuân thủ tuyệt đối `.cursorrules`: Feature-First, Repository Pattern, GetX clean architecture.

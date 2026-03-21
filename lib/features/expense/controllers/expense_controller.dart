@@ -4,15 +4,19 @@ import 'package:get/get.dart';
 
 import '../../auth/controllers/auth_controller.dart';
 import '../../auth/repositories/auth_repository.dart';
+import '../../room/models/room_model.dart';
 import '../../room/repositories/room_repository.dart';
+import '../models/audit_log.dart';
 import '../models/expense.dart';
 import '../models/member_option.dart';
 import '../models/tag.dart';
+import '../repositories/audit_repository.dart';
 import '../repositories/expense_repository.dart';
 import '../repositories/tag_repository.dart';
 
 class ExpenseController extends GetxController {
   final ExpenseRepository _expenseRepository = ExpenseRepository();
+  final AuditRepository _auditRepository = AuditRepository();
   final TagRepository _tagRepository = TagRepository();
   final RoomRepository _roomRepository = RoomRepository();
   final AuthRepository _authRepository = AuthRepository();
@@ -27,6 +31,8 @@ class ExpenseController extends GetxController {
   final tags = <Tag>[].obs;
   final expenses = <Expense>[].obs;
   final members = <MemberOption>[].obs;
+  final RxList<String> activeMemberUids = <String>[].obs;
+  final Rxn<RoomModel> currentRoom = Rxn<RoomModel>();
 
   final RxMap<DateTime, List<Expense>> calendarEvents =
       <DateTime, List<Expense>>{}.obs;
@@ -36,6 +42,9 @@ class ExpenseController extends GetxController {
       <String, List<Expense>>{}.obs;
   final RxMap<String, Tag> tagLookup = <String, Tag>{}.obs;
   final RxMap<String, String> memberNameLookup = <String, String>{}.obs;
+
+  final RxList<AuditLog> currentExpenseLogs = <AuditLog>[].obs;
+  final RxBool isLoadingLogs = false.obs;
 
   final RxBool isLoadingTags = true.obs;
   final RxBool isLoadingExpenses = true.obs;
@@ -47,13 +56,21 @@ class ExpenseController extends GetxController {
 
   String? get currentUid => _authRepository.currentUid;
 
+  List<MemberOption> get activeRoomMembers {
+    final room = currentRoom.value;
+    if (room == null || members.isEmpty) return const [];
+    return members.where((m) => room.members.contains(m.uid)).toList();
+  }
+
   String? _boundRoomId;
+
   int _roomRequestId = 0;
   Worker? _roomWorker;
   Worker? _focusedMonthWorker;
   Worker? _expensesWorker;
   Worker? _tagsWorker;
   Worker? _membersWorker;
+  StreamSubscription<RoomModel?>? _roomSubscription;
   StreamSubscription<List<Tag>>? _tagSubscription;
   final Map<String, StreamSubscription<List<Expense>>> _expenseSubscriptions =
       <String, StreamSubscription<List<Expense>>>{};
@@ -78,6 +95,7 @@ class ExpenseController extends GetxController {
 
     _expensesWorker = ever<List<Expense>>(expenses, (_) {
       _rebuildExpenseDerivedData();
+      _fetchMissingHistoricalMembers();
     });
 
     _tagsWorker = ever<List<Tag>>(tags, (_) {
@@ -130,7 +148,7 @@ class ExpenseController extends GetxController {
     expensesErrorMessage.value = null;
 
     try {
-      await _loadMembers(roomId, requestId);
+      await _listenToRoomAndMembers(roomId, requestId);
       await _bindTags(roomId, requestId);
       if (!_isActiveRequest(requestId, roomId)) {
         return;
@@ -155,6 +173,8 @@ class ExpenseController extends GetxController {
   }
 
   Future<void> _clearRoomState() async {
+    await _roomSubscription?.cancel();
+    _roomSubscription = null;
     await _tagSubscription?.cancel();
     _tagSubscription = null;
     for (final subscription in _expenseSubscriptions.values) {
@@ -166,12 +186,16 @@ class ExpenseController extends GetxController {
     expenses.clear();
     tags.clear();
     members.clear();
+    activeMemberUids.clear();
+    currentRoom.value = null;
     calendarEvents.clear();
     dailyTotals.clear();
     firstExpenseIdByDay.clear();
     monthlyExpensesLookup.clear();
     tagLookup.clear();
     memberNameLookup.clear();
+    currentExpenseLogs.clear();
+    isLoadingLogs.value = false;
     membersErrorMessage.value = null;
     tagsErrorMessage.value = null;
     expensesErrorMessage.value = null;
@@ -245,27 +269,92 @@ class ExpenseController extends GetxController {
     });
   }
 
-  Future<void> _loadMembers(String roomId, int requestId) async {
+  Future<void> _listenToRoomAndMembers(String roomId, int requestId) async {
     isLoadingMembers.value = true;
+    final completer = Completer<void>();
+    await _roomSubscription?.cancel();
+
+    _roomSubscription = _roomRepository
+        .streamRoom(roomId)
+        .listen(
+          (roomData) async {
+            if (!_isActiveRequest(requestId, roomId)) return;
+            if (roomData == null) {
+              if (!completer.isCompleted) {
+                membersErrorMessage.value = 'Phòng không tồn tại.';
+                isLoadingMembers.value = false;
+                completer.completeError('Phòng không tồn tại');
+              }
+              return;
+            }
+
+            currentRoom.value = roomData;
+            activeMemberUids.assignAll(roomData.members);
+
+            try {
+              final historicalUids = _extractAllHistoricalUids();
+              final combinedUids = {
+                ...roomData.members,
+                ...historicalUids,
+              }.toList();
+
+              final result = await _expenseRepository.getMemberOptions(
+                combinedUids,
+              );
+              if (!_isActiveRequest(requestId, roomId)) return;
+
+              members.assignAll(result);
+              // Worker sẽ tự động gọi _rebuildMemberLookup
+              membersErrorMessage.value = null;
+            } catch (_) {
+              membersErrorMessage.value = 'Không thể tải danh sách thành viên.';
+            } finally {
+              isLoadingMembers.value = false;
+              if (!completer.isCompleted) completer.complete();
+            }
+          },
+          onError: (_) {
+            if (!_isActiveRequest(requestId, roomId)) return;
+            if (!completer.isCompleted) {
+              membersErrorMessage.value = 'Lỗi kết nối CSDL.';
+              isLoadingMembers.value = false;
+              completer.completeError('Connection Error');
+            }
+          },
+        );
+
     try {
-      final room = await _roomRepository.getRoom(roomId);
-      final memberUids = room?.members ?? const <String>[];
-      final result = await _expenseRepository.getMemberOptions(memberUids);
-      if (_isActiveRequest(requestId, roomId)) {
-        members.assignAll(result);
-        membersErrorMessage.value = null;
-      }
-    } catch (_) {
-      if (_isActiveRequest(requestId, roomId)) {
-        members.assignAll(const <MemberOption>[]);
-        membersErrorMessage.value = 'Không thể tải danh sách thành viên.';
-      }
-      rethrow;
-    } finally {
-      if (_isActiveRequest(requestId, roomId)) {
-        isLoadingMembers.value = false;
+      await completer.future;
+    } catch (_) {}
+  }
+
+  Set<String> _extractAllHistoricalUids() {
+    final uids = <String>{};
+    for (final e in expenses) {
+      if (!memberNameLookup.containsKey(e.paidBy)) uids.add(e.paidBy);
+      for (final p in e.splitBetween) {
+        if (!memberNameLookup.containsKey(p)) uids.add(p);
       }
     }
+    return uids;
+  }
+
+  Future<void> _fetchMissingHistoricalMembers() async {
+    final missingUids = _extractAllHistoricalUids();
+    if (missingUids.isEmpty) return;
+
+    try {
+      final newMembers = await _expenseRepository.getMemberOptions(
+        missingUids.toList(),
+      );
+      if (newMembers.isNotEmpty) {
+        final currentMap = {for (final m in members) m.uid: m};
+        for (final m in newMembers) {
+          currentMap[m.uid] = m;
+        }
+        members.assignAll(currentMap.values);
+      }
+    } catch (_) {}
   }
 
   Future<void> _bindTags(String roomId, int requestId) async {
@@ -422,6 +511,21 @@ class ExpenseController extends GetxController {
     return dailyTotals[_normalizeDay(date)] ?? 0;
   }
 
+  Future<void> fetchLogs(String expenseId) async {
+    if (isLoadingLogs.value) return;
+
+    isLoadingLogs.value = true;
+    try {
+      final logs = await _auditRepository.getLogsByExpenseId(expenseId);
+      currentExpenseLogs.assignAll(logs);
+    } catch (_) {
+      // Sliently fail for logs, user just won't see them
+      currentExpenseLogs.clear();
+    } finally {
+      isLoadingLogs.value = false;
+    }
+  }
+
   Future<void> addExpense({
     required double amount,
     required String paidByUid,
@@ -447,6 +551,12 @@ class ExpenseController extends GetxController {
         throw Exception('Bạn chưa tham gia phòng.');
       }
 
+      if (!activeMemberUids.contains(paidByUid)) {
+        throw Exception(
+          'Người trả tiền đã rời phòng. Không thể thêm hóa đơn cho người này.',
+        );
+      }
+
       final expense = Expense(
         id: 'local_${DateTime.now().millisecondsSinceEpoch}',
         roomId: roomId,
@@ -459,7 +569,20 @@ class ExpenseController extends GetxController {
         note: note,
         createdAt: DateTime.now(),
       );
-      await _expenseRepository.addExpense(expense);
+      final newId = await _expenseRepository.addExpense(expense);
+      // Fire-and-forget audit log with post-completion fetch
+      _auditRepository
+          .logAction(
+            AuditLog(
+              uid: uid,
+              action: 'CREATE',
+              expenseId: newId,
+              oldData: null,
+              newData: expense.toMap(),
+              timestamp: DateTime.now(),
+            ),
+          )
+          .then((_) => fetchLogs(newId));
       selectedDate.value = date;
       focusedMonth.value = _monthStart(date);
     } catch (e) {
@@ -480,14 +603,43 @@ class ExpenseController extends GetxController {
 
     isSaving.value = true;
     try {
+      final oldExpense = expenses.firstWhereOrNull((e) => e.id == expense.id);
+      if (oldExpense == null) throw Exception('Hóa đơn không tồn tại.');
+
+      final uid = _authRepository.currentUid;
+      final adminId = currentRoom.value?.adminId;
+
+      if (oldExpense.createdBy != uid && adminId != uid) {
+        throw Exception(
+          'Chỉ người tạo hóa đơn hoặc Quản trị viên mới có quyền sửa!',
+        );
+      }
+
+      if (expense.paidBy != oldExpense.paidBy &&
+          !activeMemberUids.contains(expense.paidBy)) {
+        throw Exception('Người trả tiền mới thao tác đã rời phòng!');
+      }
+
       await _expenseRepository.updateExpense(expense);
+      // Fire-and-forget audit log with post-completion fetch
+      _auditRepository
+          .logAction(
+            AuditLog(
+              uid: _authRepository.currentUid ?? '',
+              action: 'UPDATE',
+              expenseId: expense.id,
+              oldData: oldExpense.toMap(),
+              newData: expense.toMap(),
+              timestamp: DateTime.now(),
+            ),
+          )
+          .then((_) => fetchLogs(expense.id));
       selectedDate.value = expense.date;
-    } catch (_) {
-      Get.snackbar(
-        'Lỗi',
-        'Không thể cập nhật khoản chi. Vui lòng thử lại.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    } catch (e) {
+      final message = e is Exception
+          ? e.toString().replaceFirst('Exception: ', '')
+          : 'Không thể cập nhật khoản chi. Vui lòng thử lại.';
+      Get.snackbar('Lỗi', message, snackPosition: SnackPosition.BOTTOM);
       rethrow;
     } finally {
       isSaving.value = false;
@@ -496,13 +648,35 @@ class ExpenseController extends GetxController {
 
   Future<void> deleteExpense(String id) async {
     try {
+      final oldExpense = expenses.firstWhereOrNull((e) => e.id == id);
+      if (oldExpense == null) throw Exception('Hóa đơn không tồn tại.');
+
+      final uid = _authRepository.currentUid;
+      final adminId = currentRoom.value?.adminId;
+
+      if (oldExpense.createdBy != uid && adminId != uid) {
+        throw Exception('Chỉ người tạo hoặc Quản trị viên mới có quyền xóa!');
+      }
+
       await _expenseRepository.deleteExpense(id);
-    } catch (_) {
-      Get.snackbar(
-        'Lỗi',
-        'Không thể xóa khoản chi. Vui lòng thử lại.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      // Fire-and-forget audit log with post-completion fetch
+      _auditRepository
+          .logAction(
+            AuditLog(
+              uid: _authRepository.currentUid ?? '',
+              action: 'DELETE',
+              expenseId: id,
+              oldData: oldExpense?.toMap(),
+              newData: null,
+              timestamp: DateTime.now(),
+            ),
+          )
+          .then((_) => fetchLogs(id));
+    } catch (e) {
+      final message = e is Exception
+          ? e.toString().replaceFirst('Exception: ', '')
+          : 'Không thể xóa khoản chi. Vui lòng thử lại.';
+      Get.snackbar('Lỗi', message, snackPosition: SnackPosition.BOTTOM);
       rethrow;
     }
   }

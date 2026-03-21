@@ -5,13 +5,20 @@ import 'package:intl/intl.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../controllers/expense_controller.dart';
 import '../models/expense.dart';
+import '../screens/add_expense_screen.dart';
+import '../widgets/expense_audit_timeline.dart';
 import '../widgets/expense_state_widgets.dart';
 
-class ExpenseDetailScreen extends StatelessWidget {
+class ExpenseDetailScreen extends StatefulWidget {
   final Expense expense;
 
   const ExpenseDetailScreen({super.key, required this.expense});
 
+  @override
+  State<ExpenseDetailScreen> createState() => _ExpenseDetailScreenState();
+}
+
+class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   String _formatVnd(num amount) {
     final formatted = NumberFormat('#,##0', 'vi_VN').format(amount.round());
     return '$formatted đ';
@@ -28,28 +35,39 @@ class ExpenseDetailScreen extends StatelessWidget {
   }
 
   @override
+  void initState() {
+    super.initState();
+    final ExpenseController controller = Get.find();
+    // Use addPostFrameCallback to ensure this runs after initial frame and doesn't conflict with current build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchLogs(widget.expense.id);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ExpenseController controller = Get.find();
-    final tag = controller.getTagById(expense.tagId);
-    final tagColor = tag == null
-        ? Theme.of(context).colorScheme.primary
-        : Color(int.parse(tag.colorHex.replaceFirst('#', '0xff')));
-    final isCreator = controller.currentUid == expense.createdBy;
-    final dateFormatter = DateFormat('EEEE, dd MMMM yyyy - HH:mm', 'vi_VN');
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chi tiết Chi tiêu'),
-        actions: isCreator
-            ? [
+        actions: [
+          Obx(() {
+            final expense = controller.expenses.firstWhereOrNull(
+              (e) => e.id == widget.expense.id,
+            );
+            if (expense == null) return const SizedBox.shrink();
+
+            final isCreator = controller.currentUid == expense.createdBy;
+            if (!isCreator) return const SizedBox.shrink();
+
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () {
-                    Get.snackbar(
-                      'Tính năng',
-                      'Sửa khoản chi sẽ ra mắt sau.',
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
+                    Get.to(() => AddExpenseScreen(existingExpense: expense));
                   },
                 ),
                 IconButton(
@@ -57,16 +75,36 @@ class ExpenseDetailScreen extends StatelessWidget {
                     Icons.delete,
                     color: Theme.of(context).colorScheme.error,
                   ),
-                  onPressed: () => _showDeleteConfirm(context, controller),
+                  onPressed: () =>
+                      _showDeleteConfirm(context, controller, expense),
                 ),
-              ]
-            : [],
+              ],
+            );
+          }),
+        ],
       ),
       body: Obx(() {
+        final expense = controller.expenses.firstWhereOrNull(
+          (e) => e.id == widget.expense.id,
+        );
+
+        if (expense == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) Get.back();
+          });
+          return const SizedBox.shrink();
+        }
+
         if (controller.isLoadingMembers.value ||
             controller.isLoadingTags.value) {
           return const ExpenseDetailShimmer();
         }
+
+        final tag = controller.getTagById(expense.tagId);
+        final tagColor = tag == null
+            ? Theme.of(context).colorScheme.primary
+            : Color(int.parse(tag.colorHex.replaceFirst('#', '0xff')));
+        final dateFormatter = DateFormat('EEEE, dd MMMM yyyy - HH:mm', 'vi_VN');
 
         final errorMessage = controller.primaryLoadError;
         if (errorMessage != null && tag == null) {
@@ -183,6 +221,15 @@ class ExpenseDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+              const Divider(height: 32),
+              Text(
+                'Lịch sử hoạt động',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ExpenseAuditTimeline(expense: expense),
             ],
           ),
         );
@@ -218,7 +265,11 @@ class ExpenseDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirm(BuildContext context, ExpenseController controller) {
+  void _showDeleteConfirm(
+    BuildContext context,
+    ExpenseController controller,
+    Expense expense,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) {

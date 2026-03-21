@@ -11,19 +11,16 @@
 - Form chi tiết: Số tiền, Người trả, Mô tả, Tùy chọn chia (Split logic).
 - Custom Tags: Người dùng tự định nghĩa danh mục chi tiêu (Icon, Màu sắc).
 
-## 3. Settlement (Chốt nợ và Thanh toán)
-- Thuật toán cấn trừ nợ chéo: Tính toán số tiền thực nhận/thực trả tối ưu nhất.
-- **Thanh toán một lần**: Quy trình thanh toán đơn giản, chốt nợ và tất toán toàn bộ trong một giao dịch.
-- VietQR Integration: Tạo mã QR chuyển khoản tự động kèm nội dung thanh toán.
+## 3. Advanced Reporting (Báo cáo & Thống kê)
+- **Báo cáo Tổng (Group)**: Theo dõi tổng quan chi tiêu cả phòng, có biểu đồ phân bổ theo danh mục và thống kê thành viên.
+- **Báo cáo Cá nhân**: Phân tích cá nhân hóa dựa trên số tiền người dùng đã tự chi trả.
+- Xoay trục thời gian linh hoạt 5 mốc: Ngày làm việc, Tháng, Quý, Năm, và Toàn thời gian.
+- **Export Data**: Xuất báo cáo chi tiêu ra file Excel/CSV.
 
 ## 4. AI Assistant (Trợ lý ảo)
 - **Text-based Gemini**: Hỏi đáp trực tiếp về tình hình tài chính (Ví dụ: "Tháng này tiền ăn hết bao nhiêu?").
 
-## 5. Analytics & Export (Báo cáo)
-- Biểu đồ thống kê: Trực quan hóa chi tiêu theo Tag và theo thành viên.
-- **Export Data**: Xuất báo cáo chi tiêu hàng tháng ra file Excel/CSV.
-
-## 6. System & Settings (Cài đặt)
+## 5. System & Settings (Cài đặt)
 - **Audit Log (Nhật ký)**: Theo dõi mọi hành động Thêm/Sửa/Xóa khoản chi để đảm bảo minh bạch.
 - Quản lý Profile: Cập nhật thông tin ngân hàng cá nhân.
-- Rời phòng: Logic kiểm tra công nợ trước khi cho phép rời.
+- Rời phòng: Logic chặn rời phòng khi công việc chung / giấy tờ chưa giải quyết.

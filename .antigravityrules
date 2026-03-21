@@ -8,6 +8,8 @@
   - Dùng Empty States khi không có dữ liệu.
   - Dùng Shimmer Loading thay cho xoay tròn (CircularProgressIndicator).
   - Sử dụng Haptic Feedback (rung nhẹ) cho các thao tác quan trọng.
+- Tiêu chuẩn Routing & Navigation: 
+  - KHÔNG BAO GIỜ viết xong Screen/Controller mà để không. PHẢI đảm bảo màn hình mới luôn được tích hợp vào `main_navigation.dart` hoặc các phương thức Routing/Điều hướng tương ứng của GetX để User có thể bấm vào test ngay lập tức.
 - Logic nghiệp vụ cốt lõi: Rời phòng phải có Admin duyệt và công nợ phải bằng 0.
 
 "QUY TẮC CẬP NHẬT TIẾN ĐỘ:

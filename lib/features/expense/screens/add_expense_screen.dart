@@ -5,11 +5,15 @@ import 'package:intl/intl.dart';
 
 import '../../../core/widgets/empty_state.dart';
 import '../controllers/expense_controller.dart';
+import '../models/expense.dart';
+import '../models/member_option.dart';
 import '../models/tag.dart';
 import '../widgets/expense_state_widgets.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({super.key});
+  final Expense? existingExpense;
+
+  const AddExpenseScreen({super.key, this.existingExpense});
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -30,7 +34,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
-    _paidByUid = controller.currentUid;
+    if (widget.existingExpense != null) {
+      final exp = widget.existingExpense!;
+      _amountController.text = exp.amount.toStringAsFixed(0);
+      _noteController.text = exp.note ?? '';
+      _selectedDate = exp.date;
+      _paidByUid = exp.paidBy;
+      _splitBetweenUids = List<String>.from(exp.splitBetween);
+    } else {
+      _paidByUid = controller.currentUid;
+    }
+
     _syncMemberDefaults();
     _syncTagDefaults();
 
@@ -50,6 +64,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (controller.tags.isEmpty) {
       _selectedTag = null;
       return;
+    }
+
+    if (_selectedTag == null && widget.existingExpense != null) {
+      _selectedTag = controller.tags.firstWhereOrNull(
+        (tag) => tag.id == widget.existingExpense!.tagId,
+      );
     }
 
     final selectedId = _selectedTag?.id;
@@ -75,10 +95,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     }
 
-    if (_paidByUid == null || !memberUids.contains(_paidByUid)) {
-      _paidByUid = memberUids.contains(controller.currentUid)
-          ? controller.currentUid
-          : memberUids.first;
+    if (_paidByUid == null ||
+        !controller.activeMemberUids.contains(_paidByUid)) {
+      final activeUids = controller.activeRoomMembers
+          .map((m) => m.uid)
+          .toList();
+      _paidByUid =
+          widget.existingExpense != null &&
+              memberUids.contains(widget.existingExpense!.paidBy)
+          ? widget.existingExpense!.paidBy
+          : (activeUids.contains(controller.currentUid)
+                ? controller.currentUid
+                : (activeUids.isNotEmpty ? activeUids.first : null));
     }
   }
 
@@ -149,19 +177,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         : _noteController.text.trim();
 
     try {
-      await controller.addExpense(
-        amount: amount,
-        paidByUid: paidByUid,
-        splitBetweenUids: _splitBetweenUids,
-        tagId: _selectedTag!.id,
-        date: _selectedDate,
-        note: note,
-      );
+      if (widget.existingExpense != null) {
+        final updatedExpense = widget.existingExpense!.copyWith(
+          amount: amount,
+          paidBy: paidByUid,
+          splitBetween: _splitBetweenUids,
+          tagId: _selectedTag!.id,
+          date: _selectedDate,
+          note: note,
+        );
+        await controller.updateExpense(updatedExpense);
+      } else {
+        await controller.addExpense(
+          amount: amount,
+          paidByUid: paidByUid,
+          splitBetweenUids: _splitBetweenUids,
+          tagId: _selectedTag!.id,
+          date: _selectedDate,
+          note: note,
+        );
+      }
       HapticFeedback.lightImpact();
       Get.back();
       Get.snackbar(
         'Thành công',
-        'Đã thêm khoản chi!',
+        widget.existingExpense != null
+            ? 'Đã cập nhật khoản chi!'
+            : 'Đã thêm khoản chi!',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.green.shade100,
         colorText: Colors.green.shade900,
@@ -172,9 +214,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.existingExpense != null;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thêm khoản chi'),
+        title: Text(isEditing ? 'Sửa khoản chi' : 'Thêm khoản chi'),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -323,7 +366,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           elevation: 4,
         ),
         child: Text(
-          isSaving ? 'Đang lưu khoản chi...' : 'Nhập khoản Tiền chi',
+          isSaving
+              ? (widget.existingExpense != null
+                    ? 'Đang cập nhật...'
+                    : 'Đang lưu...')
+              : (widget.existingExpense != null
+                    ? 'Lưu thay đổi'
+                    : 'Nhập khoản Tiền chi'),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
@@ -452,34 +501,60 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           ),
           const SizedBox(height: 20),
           Obx(() {
-            if (controller.members.isEmpty) {
+            final isEditing = widget.existingExpense != null;
+            final activeMembers = controller.activeRoomMembers;
+            if (activeMembers.isEmpty && !isEditing) {
               return const SizedBox.shrink();
             }
 
-            return Column(
-              children: [
-                DropdownButtonFormField<String>(
-                  key: ValueKey(_paidByUid),
-                  initialValue: _paidByUid,
-                  decoration: const InputDecoration(
-                    labelText: 'Người trả',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: controller.members
-                      .map(
-                        (member) => DropdownMenuItem<String>(
-                          value: member.uid,
-                          child: Text(
-                            member.displayName,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _paidByUid = value),
+            // Nếu đang edit và paidByUid là người đã rời, hãy thêm họ vào list để hiển thị
+            final List<MemberOption> displayOptions = List.from(activeMembers);
+            if (isEditing && _paidByUid != null) {
+              final isExMember = !activeMembers.any((m) => m.uid == _paidByUid);
+              if (isExMember) {
+                final exMember = controller.members.firstWhereOrNull(
+                  (m) => m.uid == _paidByUid,
+                );
+                if (exMember != null) {
+                  displayOptions.insert(0, exMember);
+                }
+              }
+            }
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.black12),
+                color: Theme.of(context).colorScheme.surface,
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _paidByUid,
+                  isExpanded: true,
+                  hint: const Text('Chọn người trả'),
+                  borderRadius: BorderRadius.circular(12),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _paidByUid = value);
+                    }
+                  },
+                  items: displayOptions.map((member) {
+                    final isActive = activeMembers.any(
+                      (m) => m.uid == member.uid,
+                    );
+                    return DropdownMenuItem<String>(
+                      value: member.uid,
+                      child: Text(
+                        isActive
+                            ? member.displayName
+                            : '${member.displayName} (Đã rời)',
+                        style: TextStyle(color: isActive ? null : Colors.grey),
+                      ),
+                    );
+                  }).toList(),
                 ),
-                const SizedBox(height: 12),
-              ],
+              ),
             );
           }),
           Row(
@@ -653,22 +728,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Widget _buildSplitChecklist() {
     return Obx(() {
-      if (controller.isLoadingMembers.value) {
-        return const ExpenseChipWrapShimmer();
+      final activeMembers = controller.activeRoomMembers;
+      if (activeMembers.isEmpty) {
+        return const Center(
+          child: Text('Không load được danh sách thành viên'),
+        );
       }
 
-      final members = controller.members;
       return Wrap(
-        spacing: 8.0,
-        runSpacing: 8.0,
-        children: members.map((member) {
-          final isChecked = _splitBetweenUids.contains(member.uid);
+        spacing: 8,
+        runSpacing: 8,
+        children: activeMembers.map((member) {
+          final isSelected = _splitBetweenUids.contains(member.uid);
           return FilterChip(
-            label: Text(member.displayName, overflow: TextOverflow.ellipsis),
-            selected: isChecked,
-            onSelected: (value) {
+            label: Text(member.displayName),
+            selected: isSelected,
+            onSelected: (selected) {
               setState(() {
-                if (value) {
+                if (selected) {
                   _splitBetweenUids.add(member.uid);
                 } else {
                   _splitBetweenUids.remove(member.uid);
@@ -677,12 +754,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             },
             selectedColor: Theme.of(context).colorScheme.primaryContainer,
             checkmarkColor: Theme.of(context).colorScheme.primary,
-            labelStyle: TextStyle(
-              color: isChecked
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface,
-              fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
-            ),
           );
         }).toList(),
       );

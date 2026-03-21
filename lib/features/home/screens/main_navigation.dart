@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../expense/screens/expense_calendar_screen.dart';
 import '../../expense/screens/add_expense_screen.dart';
+import '../../room/screens/room_settings_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -16,9 +17,13 @@ class _MainNavigationState extends State<MainNavigation> {
   // Danh sách các màn hình tương ứng với từng tab
   final List<Widget> _screens = [
     const ExpenseCalendarScreen(), // Tab 1: Lịch (Trang chủ)
-    const Center(child: Text('Báo cáo', style: TextStyle(fontSize: 24))), // Tab 2: Báo cáo
-    const Center(child: Text('AI Chat', style: TextStyle(fontSize: 24))), // Tab 3: AI Chat
-    const Center(child: Text('Cài đặt', style: TextStyle(fontSize: 24))), // Tab 4: Cài đặt
+    const Center(
+      child: Text('Báo cáo', style: TextStyle(fontSize: 24)),
+    ), // Tab 2: Báo cáo
+    const Center(
+      child: Text('AI Chat', style: TextStyle(fontSize: 24)),
+    ), // Tab 3: AI Chat
+    const RoomSettingsScreen(), // Tab 4: Cài đặt phòng
   ];
 
   void _onTabTapped(int index) {

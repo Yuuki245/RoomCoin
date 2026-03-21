@@ -21,10 +21,26 @@
   - *Cách làm:* Soi Log Console khi chuyển từ tháng 3 sang tháng 4.
   - *Kỳ vọng:* Thấy Log đóng stream cũ và mở stream mới đúng `monthKey`. Cache O(1) chỉ giữ dữ liệu các tháng đang active.
 
-## IV. Audit Log (Phase 2 - Upcoming)
-- [ ] **Test 6: Operation Logging**
-  - *Cách làm:* Thêm/Sửa/Xóa một khoản chi.
-  - *Kỳ vọng:* Kiểm tra collection `logs` trên Firestore có bản ghi tương ứng với `oldData` và `newData`.
+## IV. Audit Log (Phase 2 - Implemented ✅)
+- [x] **Test 6: Operation Logging**
+  - **Test 6a: CREATE Log**
+    - *Cách làm:* Thêm một khoản chi mới (VD: 500.000đ tiền ăn).
+    - *Kỳ vọng:* Collection `logs` trên Firestore có bản ghi mới với: `action: "CREATE"`, `uid` khớp người tạo, `expenseId` khớp khoản chi vừa tạo, `newData` chứa đầy đủ thông tin (amount, paidBy, tagId, date...), `oldData` = null, `timestamp` gần thời điểm hiện tại.
+  - **Test 6b: UPDATE Log**
+    - *Cách làm:* Sửa khoản chi vừa tạo (VD: đổi số tiền từ 500.000đ thành 600.000đ).
+    - *Kỳ vọng:* Collection `logs` có bản ghi mới: `action: "UPDATE"`, `oldData.amount = 500000`, `newData.amount = 600000`, các field khác giữ nguyên.
+  - **Test 6c: DELETE Log**
+    - *Cách làm:* Xóa khoản chi vừa sửa.
+    - *Kỳ vọng:* Collection `logs` có bản ghi mới: `action: "DELETE"`, `oldData` chứa data đầy đủ của khoản chi, `newData` = null.
+  - **Test 6d: Fire-and-Forget (Performance)**
+    - *Cách làm:* Thêm khoản chi, quan sát tốc độ phản hồi UI.
+    - *Kỳ vọng:* UI không bị chậm hoặc đợi thêm khi ghi log. Nếu tắt mạng ngay sau khi thêm, khoản chi vẫn lưu thành công (log có thể mất, không ảnh hưởng flow chính).
+  - **Test 6e: UI Timeline Display**
+    - *Cách làm:* Mở màn hình Chi tiết khoản chi (`ExpenseDetailScreen`) của khoản chi vừa thao tác Thêm/Sửa. Cuộn xuống dưới cùng xem Widget 'Lịch sử hoạt động'.
+    - *Kỳ vọng:* Hiển thị Shimmer loading ngắn, sau đó ListView hiển thị timeline log với icon màu (xanh/đỏ/xanh lơ) đúng mốc thời gian. Các câu mô tả parse đúng (Ví dụ: 'Đã cập nhật số tiền từ 100,000đ thành 200,000đ'). Không làm jank khi mở màn hình.
+  - **Test 6f: Edit Expense Form (120Hz)**
+    - *Cách làm:* Bấm vào nút Edit trên AppBar của chi tiết khoản chi. Màn hình AddExpenseScreen sẽ mở lên ở chế độ Edit.
+    - *Kỳ vọng:* Màn hình hiển thị "Sửa khoản chi", số tiền và note tự động điền sẵn không có độ trễ UI ngang (giữ vững 120Hz). Submit thành công gọi updateExpense gọi AuditAction UPDATE chứ không bị đúp bản ghi.
 
 ## V. Phase 2 Validation (Persistence & Connectivity) - Redmi Note 13
 - [ ] **Test 7: Connectivity Banner on Offline**
